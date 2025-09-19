@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Traffic Prediction — Interactive Flowchart</title>
+  <style>
+    :root{
+      --bg:#0f1724;
+      --glass: rgba(255,255,255,0.06);
+      --muted: rgba(255,255,255,0.65);
+      --radius:16px;
+      --shadow: 0 10px 30px rgba(2,6,23,0.6);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0;background:radial-gradient(1200px 600px at 10% 10%, rgba(59,130,246,0.08), transparent), radial-gradient(900px 400px at 90% 90%, rgba(234,88,12,0.06), transparent), var(--bg);color:#e6eef8}
+
+    .container{max-width:1200px;margin:32px auto;padding:24px}
+    header{display:flex;align-items:center;justify-content:space-between;gap:16px}
+    .title{display:flex;gap:12px;align-items:center}
+    .logo{width:56px;height:56px;border-radius:12px;background:linear-gradient(135deg,#06b6d4,#3b82f6);box-shadow: 0 6px 18px rgba(59,130,246,0.28);display:flex;align-items:center;justify-content:center;font-weight:700}
+    h1{font-size:20px;margin:0}
+    p.lead{margin:0;color:var(--muted);font-size:13px}
+
+    .canvas{margin-top:28px;position:relative;padding:28px;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border-radius:22px;box-shadow:var(--shadow);overflow:hidden}
+
+    .flowgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:28px;align-items:start;padding:28px}
+
+    .node{background:var(--glass);border-radius:14px;padding:18px;min-height:88px;display:flex;flex-direction:column;gap:8px;box-shadow: 0 6px 18px rgba(2,6,23,0.45);transition:transform 420ms cubic-bezier(.2,.9,.2,1), box-shadow 420ms;position:relative;cursor:pointer}
+    .node:hover{transform:translateY(-8px);box-shadow:0 18px 40px rgba(2,6,23,0.6)}
+    .node .badge{font-size:12px;padding:6px 10px;border-radius:999px;background:rgba(255,255,255,0.04);display:inline-block}
+    .node h3{margin:0;font-size:15px}
+    .node p{margin:0;color:var(--muted);font-size:13px}
+
+    .start{background:linear-gradient(135deg,#10b981,#06b6d4);color:#042317}
+    .end{background:linear-gradient(135deg,#ef4444,#fb7185);color:#fff}
+    .feature{background:linear-gradient(135deg,#7c3aed,#06b6d4);}
+    .train{background:linear-gradient(135deg,#f97316,#f59e0b)}
+
+    .svg-layer{position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none}
+
+    @media (max-width:900px){
+      .flowgrid{grid-template-columns:repeat(1,1fr)}
+    }
+
+    .pulse{animation:pulse 2s infinite}
+    @keyframes pulse{0%{box-shadow:0 6px 18px rgba(2,6,23,0.35)}50%{box-shadow:0 20px 40px rgba(2,6,23,0.6)}100%{box-shadow:0 6px 18px rgba(2,6,23,0.35)}}
+
+    /* Modal styles */
+    .modal{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;opacity:0;visibility:hidden;transition:all 0.3s ease;z-index:1000}
+    .modal.active{opacity:1;visibility:visible}
+    .modal-content{background:#1e293b;color:white;padding:24px;border-radius:18px;max-width:500px;width:90%;box-shadow:0 20px 50px rgba(0,0,0,0.7);animation:scaleIn 0.3s ease}
+    @keyframes scaleIn{from{transform:scale(0.8);opacity:0}to{transform:scale(1);opacity:1}}
+    .modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+    .modal-header h2{margin:0;font-size:18px}
+    .close-btn{background:none;border:none;color:white;font-size:20px;cursor:pointer}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="title">
+        <div class="logo">TP</div>
+        <div>
+          <h1>Traffic Prediction — Flowchart</h1>
+          <p class="lead">Interactive, responsive flowchart for the case study you provided</p>
+        </div>
+      </div>
+      <div style="color:var(--muted);font-size:13px">9k rows • Kaggle • Predict traffic volume</div>
+    </header>
+
+    <div class="canvas" id="canvas">
+      <svg class="svg-layer" id="connectors" aria-hidden="true"></svg>
+      <div class="flowgrid" id="grid">
+        <div class="node start" data-id="start"><div class="badge">1</div><h3>Start</h3><p>Kick off the pipeline</p></div>
+        <div class="node" data-id="collect"><div class="badge">2</div><h3>Collect Traffic Dataset</h3><p>9000 records from Kaggle</p></div>
+        <div class="node" data-id="clean"><div class="badge">3</div><h3>Data Cleaning</h3><p>Handle missing values & format datetime</p></div>
+        <div class="node feature" data-id="feat"><div class="badge">4</div><h3>Feature Engineering</h3><p>hour, day-of-week, temperature/weather</p></div>
+        <div class="node train" data-id="train"><div class="badge">5</div><h3>Model Training</h3><p>Use ML to predict traffic volume</p></div>
+        <div class="node" data-id="predict"><div class="badge">6</div><h3>Predictions</h3><p>Forecast traffic at a given time</p></div>
+        <div class="node" data-id="insights"><div class="badge">7</div><h3>Insights / Visualization</h3><p>Identify rush hours & traffic trends</p></div>
+        <div class="node" data-id="indore"><div class="badge">8</div><h3>Application for Indore</h3><p>Help citizens, optimize delivery, support planning</p></div>
+        <div class="node end" data-id="end"><div class="badge">9</div><h3>End</h3><p>Deliver insights & apps</p></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal -->
+  <div class="modal" id="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="modal-title">Title</h2>
+        <button class="close-btn" onclick="closeModal()">×</button>
+      </div>
+      <div id="modal-body">Details will appear here.</div>
+    </div>
+  </div>
+
+  <script>
+    function centerOf(el, container){
+      const r = el.getBoundingClientRect();
+      const c = container.getBoundingClientRect();
+      return {x: r.left - c.left + r.width/2, y: r.top - c.top + r.height/2};
+    }
+
+    function drawConnectors(){
+      const svg = document.getElementById('connectors');
+      const container = document.getElementById('canvas');
+      svg.innerHTML='';
+      const order = ['start','collect','clean','feat','train','predict','insights','indore','end'];
+      const elements = order.map(id => document.querySelector('[data-id="'+id+'"]'));
+      for(let i=0;i<elements.length-1;i++){
+        const a = elements[i];
+        const b = elements[i+1];
+        if(!a||!b) continue;
+        const p1 = centerOf(a,container);
+        const p2 = centerOf(b,container);
+        const dx = Math.abs(p2.x-p1.x);
+        const curvature = Math.min(160, dx/1.5 + 40);
+        const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+        const d = `M ${p1.x} ${p1.y} C ${p1.x+curvature} ${p1.y}, ${p2.x-curvature} ${p2.y}, ${p2.x} ${p2.y}`;
+        path.setAttribute('d',d);
+        path.setAttribute('fill','none');
+        path.setAttribute('stroke','rgba(255,255,255,0.06)');
+        path.setAttribute('stroke-width','3');
+        path.setAttribute('stroke-linecap','round');
+        const pid = 'p-'+i;
+        path.setAttribute('id',pid);
+        svg.appendChild(path);
+
+        // animated dot
+        const dot = document.createElementNS('http://www.w3.org/2000/svg','circle');
+        dot.setAttribute('r',4);
+        dot.setAttribute('fill','white');
+        dot.setAttribute('opacity',0.9);
+        svg.appendChild(dot);
+
+        const animateMotion = document.createElementNS('http://www.w3.org/2000/svg','animateMotion');
+        animateMotion.setAttribute('dur','2s');
+        animateMotion.setAttribute('repeatCount','indefinite');
+        const mpath = document.createElementNS('http://www.w3.org/2000/svg','mpath');
+        mpath.setAttributeNS('http://www.w3.org/1999/xlink','href','#'+pid);
+        animateMotion.appendChild(mpath);
+        dot.appendChild(animateMotion);
+      }
+    }
+    window.addEventListener('load',()=>{ drawConnectors(); attachInteractivity();});
+    window.addEventListener('resize',()=>{ drawConnectors(); });
+
+    function attachInteractivity(){
+      const nodes = document.querySelectorAll('.node');
+      nodes.forEach(n=>{
+        n.addEventListener('click',()=>{
+          nodes.forEach(x=>x.classList.remove('pulse'));
+          n.classList.add('pulse');
+          const id = n.getAttribute('data-id');
+          openModal(id);
+        });
+      });
+    }
+
+    function openModal(id){
+      const modal = document.getElementById('modal');
+      const title = document.getElementById('modal-title');
+      const body = document.getElementById('modal-body');
+      const detail = getDetail(id);
+      title.textContent = detail.title;
+      body.innerHTML = detail.body;
+      modal.classList.add('active');
+    }
+    function closeModal(){
+      document.getElementById('modal').classList.remove('active');
+    }
+
+    function getDetail(id){
+      switch(id){
+        case 'start': return {title:'Start', body:'Initialize the pipeline and set objectives.'};
+        case 'collect': return {title:'Collect Dataset', body:'Load the 9k-record dataset from Kaggle (datetime, temp, volume, weather).'};
+        case 'clean': return {title:'Data Cleaning', body:'Impute missing values, convert datetime to proper tz-aware objects.'};
+        case 'feat': return {title:'Feature Engineering', body:'Extract hour, day-of-week, encode weather, create lag features.'};
+        case 'train': return {title:'Model Training', body:'Try trees (XGBoost/LightGBM), or neural nets. Cross-validate by time-window.'};
+        case 'predict': return {title:'Predictions', body:'Forecast volume per hour. Serve via REST/API or batch exports.'};
+        case 'insights': return {title:'Insights & Visualization', body:'Plot rush hours, anomalies, and trend decomposition.'};
+        case 'indore': return {title:'Application for Indore', body:'Route optimization, signal timing, citizen alerts.'};
+        case 'end': return {title:'End', body:'Deliverables: model, dashboard, and deployment guide.'};
+        default: return {title:'Info', body:'Click any box to see more info'};
+      }
+    }
+  </script>
+</body>
+</html>
